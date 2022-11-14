@@ -2667,7 +2667,7 @@ static cmdline_processor::register_flag cmd_noline(
     []{ enable_debug_output_files = true; }
 );
 
-auto main(int argc, char* argv[]) -> int
+auto main2(int argc, char* argv[]) -> int
 {
     cmdline.set_args(argc, argv);
     cmdline.process_flags();
@@ -2685,7 +2685,7 @@ auto main(int argc, char* argv[]) -> int
     int exit_status = EXIT_SUCCESS;
     for (auto const& arg : cmdline.arguments())
     {
-        std::cout << arg.text << "...";
+        /*std::cout << arg.text << "...";*/
 
         //  Load + lex + parse + sema
         cppfront c(arg.text);
@@ -2696,21 +2696,21 @@ auto main(int argc, char* argv[]) -> int
         //  If there were no errors, say so and generate Cpp1
         if (c.had_no_errors()) {
             if (!c.has_cpp1()) {
-                std::cout << " ok (all Cpp2, passes safety checks)\n\n";
+                /*std::cout << " ok (all Cpp2, passes safety checks)\n\n";*/
             }
             else if (c.has_cpp2()) {
-                std::cout << " ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)\n\n";
+                /*std::cout << " ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)\n\n";*/
             }
             else {
-                std::cout << " ok (all Cpp1)\n\n";
+                /*std::cout << " ok (all Cpp1)\n\n";*/
             }
         }
         //  Otherwise, print the errors
         else {
-            std::cout << "\n";
+            /*std::cout << "\n";
             c.print_errors();
             std::cout << "\n";
-            exit_status = EXIT_FAILURE;
+            exit_status = EXIT_FAILURE;*/
         }
 
         //  In any case, emit the debug information (during early development this is
@@ -2720,4 +2720,37 @@ auto main(int argc, char* argv[]) -> int
         }
     }
     return exit_status;
+}
+
+
+#include <vector>
+
+std::vector<unsigned char> g_bytes;
+
+extern "C" int LLVMFuzzerTestOneInput(unsigned char const* data, size_t size)
+{
+    static char const* const s_argv[] = {"cppfront.exe", "source.cpp2"};
+    /*static char const s_input[] = "v1:vA1:A/:A";
+    static int const s_input_len = ((int)(sizeof(s_input) / sizeof(s_input[0]) - 1));*/
+
+    size_t i;
+    int argc;
+    char** argv;
+    std::vector<unsigned char> empty;
+
+    /*data = ((unsigned char const*)(s_input));
+    size = ((size_t)(s_input_len));*/
+    for(i = 0; i != size; ++i)
+    {
+        if(!(data[i] >= 0x20 && data[i] <= 0x7e))
+        {
+            return 0;
+        }
+    }
+    g_bytes.insert(g_bytes.cend(), data, data + size);
+    argc = 2;
+    argv = ((char**)(s_argv));
+    main2(argc, argv);
+    swap(g_bytes, empty);
+    return 0;
 }
