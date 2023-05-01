@@ -28,9 +28,7 @@ auto cmdline_processor::print(std::string_view s, int width)
     -> void
 {
     if (width > 0) {
-        std::cout << std::setw(width) << std::left;
     }
-    std::cout << s;
 }
 
 
@@ -164,27 +162,6 @@ auto error_entry::print(
 ) const
     -> void
 {
-    o << file ;
-    if (where.lineno > 0) {
-        if (flag_print_colon_errors) {
-            o << ":" << (where.lineno);
-            if (where.colno >= 0) {
-                o << ":" << where.colno;
-            }
-        }
-        else {
-            o << "("<< (where.lineno);
-            if (where.colno >= 0) {
-                o << "," << where.colno;
-            }
-            o  << ")";
-        }
-    }
-    o << ":";
-    if (internal) {
-        o << " internal compiler";
-    }
-    o << " error: " << msg << "\n";
 }
 
 class positional_printer
@@ -331,7 +308,6 @@ private:
 
         //  Output the string
         assert (out);
-        *out << s;
 
         //  Update curr_pos by finding how many line breaks s contained,
         //  and where the last one was which determines our current colno
@@ -394,7 +370,6 @@ private:
         //  Not using print() here because this is transparent to the curr_pos
         if (!flag_clean_cpp1) {
             assert (out);
-            *out << "#line " << line << " " << std::quoted(cpp2_filename) << "\n";
         }
         just_printed_line_directive = true;
     }
@@ -595,7 +570,6 @@ public:
         );
         cpp1_filename = cpp1_filename_;
         if (cpp1_filename == "stdout") {
-            out = &std::cout;
         }
         else {
             out_file.open(cpp1_filename);
@@ -732,7 +706,6 @@ public:
             //  line numbers), then shunt this call to print_extra instead
             if (pos.lineno < 1) {
                 if (generated_pos_line != pos.lineno) {
-                    *out << "\n" + std::string(last_line_indentation, ' ');
                     generated_pos_line = pos.lineno;
                 }
                 print_extra(s);
@@ -5752,13 +5725,10 @@ public:
         }
 
         if (violates_lifetime_safety) {
-            std::cerr << "  ==> program violates lifetime safety guarantee - see previous errors\n";
         }
         if (violates_bounds_safety) {
-            std::cerr << "  ==> program violates bounds safety guarantee - see previous errors\n";
         }
         if (violates_initialization_safety) {
-            std::cerr << "  ==> program violates initialization safety guarantee - see previous errors\n";
         }
     }
 
@@ -5832,7 +5802,7 @@ static cmdline_processor::register_flag cmd_debug(
     []{ enable_debug_output_files = true; }
 );
 
-auto main(
+auto main_old(
     int   argc,
     char* argv[]
 )
@@ -5846,7 +5816,6 @@ auto main(
     }
 
     if (cmdline.arguments().empty()) {
-        std::cerr << "cppfront: error: no input files (try -help)\n";
         return EXIT_FAILURE;
     }
 
@@ -5854,7 +5823,6 @@ auto main(
     int exit_status = EXIT_SUCCESS;
     for (auto const& arg : cmdline.arguments())
     {
-        std::cout << arg.text << "...";
 
         //  Load + lex + parse + sema
         cppfront c(arg.text);
@@ -5866,32 +5834,21 @@ auto main(
         if (c.had_no_errors())
         {
             if (!c.has_cpp1()) {
-                std::cout << " ok (all Cpp2, passes safety checks)\n";
             }
             else if (c.has_cpp2()) {
-                std::cout << " ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)\n";
             }
             else {
-                std::cout << " ok (all Cpp1)\n";
             }
 
             if (flag_verbose) {
-                std::cout << "   Cpp1: " << count.cpp1_lines << " lines\n";
-                std::cout << "   Cpp2: " << count.cpp2_lines << " lines";
                 if (count.cpp1_lines + count.cpp2_lines > 0) {
-                    std::cout << " (" << 100 * count.cpp2_lines / (count.cpp1_lines + count.cpp2_lines) << "%)";
                 }
-                std::cout << "\n";
             }
 
-            std::cout << "\n";
         }
         //  Otherwise, print the errors
         else
         {
-            std::cerr << "\n";
-            c.print_errors();
-            std::cerr << "\n";
             exit_status = EXIT_FAILURE;
         }
 
@@ -5902,4 +5859,40 @@ auto main(
         }
     }
     return exit_status;
+}
+
+
+
+
+
+#include <vector>
+
+std::vector<unsigned char> g_bytes;
+
+extern "C" int LLVMFuzzerTestOneInput(unsigned char const* data, size_t size)
+{
+    static char const* const s_argv[] = {"cppfront.exe", "source.cpp2"};
+    /*static char const s_input[] = "v1:vA1:A/:A";
+    static int const s_input_len = ((int)(sizeof(s_input) / sizeof(s_input[0]) - 1));*/
+
+    size_t i;
+    int argc;
+    char** argv;
+    std::vector<unsigned char> empty;
+
+    /*data = ((unsigned char const*)(s_input));
+    size = ((size_t)(s_input_len));*/
+    for(i = 0; i != size; ++i)
+    {
+        if(!(data[i] >= 0x20 && data[i] <= 0x7e))
+        {
+            return 0;
+        }
+    }
+    g_bytes.insert(g_bytes.cend(), data, data + size);
+    argc = 2;
+    argv = ((char**)(s_argv));
+    main_old(argc, argv);
+    swap(g_bytes, empty);
+    return 0;
 }
