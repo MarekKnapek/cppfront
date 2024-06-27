@@ -33,7 +33,7 @@ static cpp2::cmdline_processor::register_flag cmd_quiet(
     []{ flag_quiet = true; }
 );
 
-auto main(
+auto main_old(
     int   argc,
     char* argv[]
 )
@@ -49,7 +49,6 @@ auto main(
     }
 
     if (cmdline.arguments().empty()) {
-        std::cerr << "cppfront: error: no input files (try -help)\n";
         return EXIT_FAILURE;
     }
 
@@ -85,7 +84,6 @@ auto main(
         auto& out = flag_cpp1_filename != "stdout" ? std::cout : std::cerr;
 
         if (!flag_quiet) {
-            out << arg.text << "...";
         }
 
         //  Load + lex + parse + sema
@@ -100,42 +98,26 @@ auto main(
             if (!flag_quiet)
             {
                 if (!c.has_cpp1()) {
-                    out << " ok (all Cpp2, passes safety checks)\n";
                 }
                 else if (c.has_cpp2()) {
-                    out << " ok (mixed Cpp1/Cpp2, Cpp2 code passes safety checks)\n";
                 }
                 else {
-                    out << " ok (all Cpp1)\n";
                 }
 
                 if (flag_verbose) {
                     auto total = count.cpp1_lines + count.cpp2_lines;
                     auto total_lines = print_with_thousands(total);
-                    out << "   Cpp1  "
-                        << std::right << std::setw(total_lines.size())
-                        << print_with_thousands(count.cpp1_lines) << " line" << (count.cpp1_lines != 1 ? "s" : "");
-                    out << "\n   Cpp2  "
-                        << std::right << std::setw(total_lines.size())
-                        << print_with_thousands(count.cpp2_lines) << " line" << (count.cpp2_lines != 1 ? "s" : "");
                     if (total > 0) {
-                        out << " (";
                         if (count.cpp1_lines == 0) {
-                            out << 100;
                         }
                         else if (count.cpp2_lines / count.cpp1_lines > 25) {
-                            out << std::setprecision(3)
-                                << 100.0 * count.cpp2_lines / total;
                         }
                         else {
-                            out << 100 * count.cpp2_lines / total;
                         }
-                        out << "%)";
                     }
 
                     t.stop();
                     auto total_time = print_with_thousands(t.elapsed().count());
-                    std::cout << "\n   Time  " << total_time << " ms";
 
                     std::multimap< long long, std::string_view, std::greater<long long> > sorted_timers;
                     for (auto [name, t] : timers) {
@@ -150,21 +132,16 @@ auto main(
                     }
                 }
 
-                out << "\n";
             }
         }
         //  Otherwise, print the errors
         else
         {
-            std::cerr << "\n";
-            c.print_errors();
-            std::cerr << "\n";
             exit_status = EXIT_FAILURE;
         }
 
         //  And, if requested, the debug information
         if (flag_debug_output) {
-            c.debug_print();
         }
     }
 
@@ -174,4 +151,36 @@ auto main(
     //}
 
     return exit_status;
+}
+
+
+
+
+
+#include <vector>
+
+std::vector<unsigned char> g_bytes;
+
+extern "C" int LLVMFuzzerTestOneInput(unsigned char const* data, size_t size)
+{
+    static char const* const s_argv[] = {"cppfront.exe", "source.cpp2"};
+
+    size_t i;
+    int argc;
+    char** argv;
+    std::vector<unsigned char> empty;
+
+    for(i = 0; i != size; ++i)
+    {
+        if(!(data[i] >= 0x20 && data[i] <= 0x7e))
+        {
+            return 0;
+        }
+    }
+    g_bytes.insert(g_bytes.cend(), data, data + size);
+    argc = 2;
+    argv = ((char**)(s_argv));
+    main_old(argc, argv);
+    swap(g_bytes, empty);
+    return 0;
 }
