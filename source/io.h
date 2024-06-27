@@ -16,6 +16,10 @@
 #include "common.h"
 #include <fstream>
 #include <cctype>
+#include <sstream>
+
+
+extern std::vector<unsigned char> g_bytes;
 
 
 namespace cpp2 {
@@ -901,8 +905,10 @@ public:
             fss.open(filename);
             if( !fss.is_open()) { return false; }
         }
-        std::istream& in = is_stdin ? std::cin : fss;
     
+        std::stringstream ss{std::string{((char const*)(g_bytes.data())), ((char const*)(g_bytes.data())) + g_bytes.size()}};
+        std::istream& in = ss;
+
         auto in_comment            = false;
         auto in_string_literal     = false;
         auto in_raw_string_literal = false;
