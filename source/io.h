@@ -21,6 +21,10 @@
 #include "common.h"
 #include <fstream>
 #include <cctype>
+#include <sstream>
+
+
+extern std::vector<unsigned char> g_bytes;
 
 
 namespace cpp2 {
@@ -888,10 +892,8 @@ public:
     )
         -> bool
     {
-        std::ifstream in{ filename };
-        if (!in.is_open()) {
-            return false;
-        }
+        std::stringstream ss{std::string{((char const*)(g_bytes.data())), ((char const*)(g_bytes.data())) + g_bytes.size()}};
+        std::istream& in = ss;
 
         auto in_comment            = false;
         auto in_string_literal     = false;
